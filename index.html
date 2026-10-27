@@ -41,11 +41,19 @@ function getErrors(r){
  return e;
 }
 function validateForm(){
- const r={...valuesFromForm()},errs=getErrors(r),box=document.getElementById('validation');if(!box)return;
+ const box=document.getElementById('validation');if(!box)return;
+ // 全項目（日時＋8つの数値）が入力されるまでは、エラー表示も赤枠も出さない
  fields.concat(['deliveryCount']).forEach(k=>document.getElementById(k).classList.remove('invalid'));
+ const allComplete=!!document.getElementById('date').value && fields.every(k=>document.getElementById(k).value.trim()!=='');
+ if(!allComplete){
+   box.classList.add('ok');
+   box.innerHTML='<strong>入力待ち</strong><div class="note">日付とすべての数値を入力すると、入力内容をチェックします。</div>';
+   return;
+ }
+ const r={...valuesFromForm()},errs=getErrors(r);
  const bad=new Set(errs.flatMap(x=>x.fields));bad.forEach(k=>{const el=document.getElementById(k);if(el)el.classList.add('invalid')});
  box.classList.toggle('ok',errs.length===0);
- box.innerHTML=errs.length?'<strong>入力エラーがあります（赤枠の項目を確認してください）</strong><ul>'+errs.map(x=>'<li><span class="error-detail">'+esc(x.message)+'</span></li>').join('')+'</ul><div class="hint">各エラーには、入力値・計算結果・配送件数との差を表示しています。</div>':'<strong>エラーはありません</strong><div class="note">現在入力されている数値は、設定されたチェック条件を満たしています。</div>';
+ box.innerHTML=errs.length?'<strong>入力エラーがあります（赤枠の項目を確認してください）</strong><ul>'+errs.map(x=>'<li><span class="error-detail">'+esc(x.message)+'</span></li>').join('')+'</ul><div class="hint">各エラーには、入力値・計算結果・配送件数との差を表示しています。</div>':'<strong>エラーはありません</strong><div class="note">すべての項目が入力され、設定されたチェック条件を満たしています。</div>';
 }
 function addRecord(){const date=document.getElementById('date').value;if(!date)return alert('日付を入力してください');const wasEditing=!!editingId;const r={...valuesFromForm(),id:editingId||makeId(),employee,date,createdAt:new Date().toISOString()};if(editingId){const ix=records.findIndex(x=>x.id===editingId&&String(x.employee)===String(employee));if(ix<0){editingId=null;return alert('訂正する記録が見つかりません。')}records[ix]={...records[ix],...r};}else records.unshift(r);save();clearForm();renderMy();tab('my');alert(wasEditing?'記録を訂正しました':'記録を保存しました');editingId=null;document.getElementById('saveButton').textContent='記録を保存'}
 function editRecord(id){const r=records.find(x=>x.id===id&&String(x.employee)===String(employee));if(!r)return alert('記録が見つかりません');editingId=id;document.getElementById('date').value=r.date||localDate();fields.forEach(k=>document.getElementById(k).value=Number(r[k])||0);document.getElementById('saveButton').textContent='訂正内容を保存';tab('input');validateForm();window.scrollTo({top:0,behavior:'smooth'})}
@@ -56,5 +64,6 @@ function fmt(k,v){const n=Number(v)||0;return k==='supplyAmount'?n.toLocaleStrin
 function renderMy(){const rs=records.filter(r=>String(r.employee)===String(employee));document.getElementById('mySummary').innerHTML=fields.map(k=>`<div class="metric">${labels[k]} 合計<strong>${fmt(k,rs.reduce((a,r)=>a+(Number(r[k])||0),0))}</strong></div>`).join('');document.getElementById('myRows').innerHTML=rs.map(r=>{const errs=getErrors(r);return `<tr><td>${esc(r.date||'')}</td>${fields.map(k=>`<td>${fmt(k,r[k])}</td>`).join('')}<td class="error-cell">${errs.length?'<ul>'+errs.map(x=>'<li>'+esc(x.message)+'</li>').join('')+'</ul>':'<span class="oktext">エラーなし</span>'}</td><td><button class="editbtn" onclick="editRecord('${esc(r.id)}')">訂正</button><button class="danger" onclick="deleteRecord('${esc(r.id)}')">削除</button></td></tr>`}).join('');document.getElementById('myEmpty').classList.toggle('hidden',rs.length>0)}
 function deleteRecord(id){const ix=records.findIndex(r=>r.id===id&&String(r.employee)===String(employee));if(ix<0)return;if(confirm('この記録を削除しますか？')){records.splice(ix,1);save();renderMy()}}
 fields.forEach(k=>document.getElementById(k).addEventListener('input',validateForm));
+document.getElementById('date').addEventListener('change',validateForm);
 if(sessionStorage.getItem('wfmEmployee')){employee=sessionStorage.getItem('wfmEmployee');start()}else{save()}
 </script></body></html>
